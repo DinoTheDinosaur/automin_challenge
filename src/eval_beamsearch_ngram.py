@@ -8,7 +8,6 @@ import pickle
 import glob
 
 import editdistance
-import kenlm_utils
 import numpy as np
 import torch
 from sklearn.model_selection import ParameterGrid
@@ -16,7 +15,8 @@ from tqdm.auto import tqdm
 
 import nemo
 import nemo.collections.asr as nemo_asr
-from models import EncDecCTCModelBPEAutoMin
+from src import kenlm_utils
+from src.models import EncDecCTCModelBPEAutoMin
 from nemo.utils import logging
 
 
@@ -31,6 +31,7 @@ def beam_search_eval(
     beam_width=128,
     beam_batch_size=128,
     progress_bar=True,
+    result_lines=[],
 ):
     # creating the beam search decoder
     beam_search_lm = nemo_asr.modules.BeamSearchDecoderWithLM(
@@ -64,15 +65,16 @@ def beam_search_eval(
             beams_batch = beam_search_lm.forward(log_probs=probs_batch, log_probs_length=None,)
 
         for beams_idx, beams in enumerate(beams_batch):
-            for candidate_idx, candidate in enumerate(beams):
-                if ids_to_text_func is not None:
-                    # For BPE encodings, need to shift by TOKEN_OFFSET to retrieve the original sub-word ids
-                    pred_text = ids_to_text_func([ord(c) - TOKEN_OFFSET for c in candidate[1]])
-                else:
-                    pred_text = candidate[1]
-                score = candidate[0]
-                if preds_output_file:
-                    out_file.write('{}\t{}\n'.format(pred_text, score))
+            beams = sorted(beams, key=lambda item: item[0], reverse=True)
+            candidate = beams[0]
+            pred_text = ids_to_text_func([ord(c) - TOKEN_OFFSET for c in candidate[1]])
+            score = candidate[0]
+            if preds_output_file:
+                out_file.write('{}\t{}\t{}\n'.format(
+                    result_lines[batch_idx*beam_batch_size + beams_idx],
+                    pred_text,
+                    score
+                ))
         sample_idx += len(probs_batch)
 
     if preds_output_file:
@@ -85,17 +87,17 @@ def main():
         description='Evaluate an ASR model with beam search decoding and n-gram KenLM language model.'
     )
     parser.add_argument(
-        "--nemo_model_file", default='../models/stt_en_conformer_ctc_large_ls.nemo', type=str, help="The path of the '.nemo' file of the ASR model"
+        "--nemo_model_file", default='models/stt_en_conformer_ctc_large_ls.nemo', type=str, help="The path of the '.nemo' file of the ASR model"
     )
     parser.add_argument(
-        "--kenlm_model_file", default='/home/dino/datasets/automin-2021-confidential-data/task-A-elitr-minuting-corpus-en/train/lm.bin', type=str, help="The path of the KenLM binary model file"
+        "--kenlm_model_file", default='/home/dino/datasets/AMI/data/ami_public_manual_1.6.2/lm.bin', type=str, help="The path of the KenLM binary model file"
     )
-    parser.add_argument("--audio_dir", default='/home/dino/datasets/ICSI/Signals_WAV/Bro013', type=str)
+    parser.add_argument("--audio_dir", default='/home/dino/datasets/ICSI/Signals_WAV/', type=str)
     parser.add_argument(
-        "--preds_output_folder", default='../results', type=str, help="The optional folder where the predictions are stored"
+        "--preds_output_folder", default='results', type=str, help="The optional folder where the predictions are stored"
     )
     parser.add_argument(
-        "--probs_cache_file", default='../tmp/probs.cache', type=str, help="The cache file for storing the outputs of the model"
+        "--probs_cache_file", default='tmp/probs.cache', type=str, help="The cache file for storing the outputs of the model"
     )
     parser.add_argument(
         "--acoustic_batch_size", default=16, type=int, help="The batch size to calculate log probabilities"
@@ -152,7 +154,7 @@ def main():
         def autocast():
             yield
     # load paths to audio
-    filepaths = sorted(list(glob.glob(os.path.join(args.audio_dir, f"*.wav"))))
+    filepaths = sorted(list(glob.glob(os.path.join(args.audio_dir, f"*/*.wav"))))
     torch.set_num_threads(1)
     vad, utils = torch.hub.load(
         repo_or_dir='snakers4/silero-vad',
@@ -163,18 +165,14 @@ def main():
      _, read_audio,
      _, _, _) = utils
     all_logits = []
+    result_lines = []
     with autocast():
         with torch.no_grad():
             for i, filename in enumerate(filepaths):
                 wav = read_audio(filename)
-                speech_timestamps = get_speech_ts(
-                    wav, vad,
-                    num_steps=4
+                speech_timestamps = get_speech_ts_adaptive(
+                    wav, vad
                 )
-                #print(asr_model.transcribe(
-                #    [filename],
-                #    [wav]
-                #)[0])
                 for i, timestamps in enumerate(speech_timestamps):
                     offset = timestamps['start']
                     onset = timestamps['end']
@@ -184,25 +182,14 @@ def main():
                         [wav[offset:onset]],
                         logprobs=True
                     )[0]]
-                    print(offset / 16000, onset / 16000)
-                    print(asr_model.transcribe(
-                        [filename_part],
-                        [wav[offset:onset]]
-                    )[0])
-                break
+                    result_lines += [
+                        f'{filename}\t{filename_part}\t{offset}\t{onset}'
+                    ]
     all_probs = [kenlm_utils.softmax(logits) for logits in all_logits]
-    encoding_level = kenlm_utils.SUPPORTED_MODELS.get(type(asr_model).__name__, None)
-    if not encoding_level:
-        logging.warning(
-            f"Model type '{type(asr_model).__name__}' may not be supported. Would try to train a char-level LM."
-        )
-        encoding_level = 'char'
     vocab = asr_model.decoder.vocabulary
     ids_to_text_func = None
-    if encoding_level == "subword":
-        vocab = [chr(idx + TOKEN_OFFSET) for idx in range(len(vocab))]
-        ids_to_text_func = asr_model.tokenizer.ids_to_text
-    # delete the model to free the memory
+    vocab = [chr(idx + TOKEN_OFFSET) for idx in range(len(vocab))]
+    ids_to_text_func = asr_model.tokenizer.ids_to_text
     del asr_model
 
     if args.decoding_mode == "beamsearch_ngram":
@@ -246,6 +233,7 @@ def main():
                 beam_beta=hp["beam_beta"],
                 beam_batch_size=args.beam_batch_size,
                 progress_bar=True,
+                result_lines=result_lines,
             )
 
 
