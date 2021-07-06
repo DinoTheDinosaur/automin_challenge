@@ -4,7 +4,7 @@ import os
 import torch
 
 class Dataset(Dataset):
-    def __init__(self, train_folder, tokenizer, model, train_size=512, label_size=20, summary_num=5):
+    def __init__(self, train_folder, tokenizer, model, train_size=512, label_size=40, summary_num=10):
         self.train_size = train_size
         self.label_size = label_size
         self.summary_num = summary_num
@@ -37,9 +37,11 @@ class Dataset(Dataset):
 
             all_chunks.append(train_chunks)
             all_labels.append(train_labels)
-            if len(all_chunks) == 2:
-                break 
-        return torch.stack(all_chunks), torch.stack(all_labels)
+
+            #if len(all_chunks) == 32:
+            #    break 
+
+        return torch.cat(all_chunks, dim=0), torch.cat(all_labels, dim=0)
 
     def read_file(self, txt_file, size):
         with open(txt_file, 'r+') as f:
@@ -57,7 +59,7 @@ class Dataset(Dataset):
                 chunks.append(chunk_ids)
         return chunks
 
-    def align_chunks(self, train_chunks, label_chunks, summary_num=5):
+    def align_chunks(self, train_chunks, label_chunks, summary_num):
         data = []
         losses = []
         for i in range(0, len(train_chunks)):
@@ -66,7 +68,7 @@ class Dataset(Dataset):
                 data.append((train_chunks[i], label_chunks[j]))
                 losses.append(loss)
 
-        min_losses = sorted(range(len(losses)), key = lambda sub: losses[sub], reverse=True)[:summary_num]
+        min_losses = sorted(range(len(losses)), key = lambda sub: losses[sub])[:summary_num]
         all_train_chunks = []
         all_train_labels = []
         for i in min_losses:
