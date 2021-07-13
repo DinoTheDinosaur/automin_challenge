@@ -23,7 +23,7 @@ def main():
     filenames, data, summary_variants = DATA_LOADERS[config['mode']][config['dataset_name']](config)
 
     if type(data[0]) != str:
-        texts = predict_text(data)
+        texts = predict_text(data, config)
     else:
         texts = data
 
@@ -35,7 +35,7 @@ def main():
 
     with open(config['results_path'], 'w') as f:
         blocks = [f'{filename}\n{predict}' for filename, predict in zip(filenames, predicts)]
-        results_text = '\n\n'.join(list(blocks))
+        results_text = '\n\n###\n\n'.join(list(blocks))
         f.write(results_text)
 
 

@@ -1,5 +1,7 @@
+import glob
 import os
 import re
+import torch
 
 from fnmatch import fnmatch
 from num2words import num2words
@@ -12,7 +14,6 @@ def clean_automin_summaries(text):
     if lines == []:
         lines = re.split('[.!?]', text)
     return '\n'.join(lines)
-
 
 
 def clean_automin_transcripts(text):
@@ -50,7 +51,6 @@ def clean_automin_transcripts(text):
     return '\n'.join(lines)
 
 
-
 def load_dataset_automin_test(config):
     path = config['test']['automin']['path']
     data_filename_pattern = config['test']['automin']['data']['filename_pattern']
@@ -68,7 +68,6 @@ def load_dataset_automin_test(config):
                     ]
         texts += cur_transcripts
     return (filenames, texts, None)
-
 
 
 def load_dataset_automin_validation(config):
@@ -99,12 +98,58 @@ def load_dataset_automin_validation(config):
     return (filenames, texts, summaries)
 
 
+def load_dataset_ICSI_test(config):
+    # load paths to audio
+    torch.set_num_threads(1)
+    vad, utils = torch.hub.load(
+        repo_or_dir='snakers4/silero-vad',
+        model='silero_vad'
+    )
+    (get_speech_ts,
+     get_speech_ts_adaptive,
+     _, read_audio,
+     _, _, _) = utils
+
+    filenames = []
+    signals = []
+    summaries = []
+
+    for foldername in os.listdir(config['test']['ICSI']['data']['path']):
+        cur_signals = []
+        subfolder = os.path.join(
+            config['test']['ICSI']['data']['path'],
+            foldername
+        )
+        filenames += [subfolder]
+        for filename in os.listdir(subfolder):
+            full_filedir = os.path.join(
+                subfolder,
+                filename
+            )
+            if not fnmatch(filename, config['test']['ICSI']['data']['filename_pattern']):
+                continue
+            wav = read_audio(full_filedir)
+            speech_timestamps = get_speech_ts(
+                wav, vad
+            )
+            for timestamps in speech_timestamps:
+                offset = timestamps['start']
+                onset = timestamps['end']
+                duration = (onset - offset) / 16000
+                if duration > 60:
+                    continue
+                cur_signals += [(offset, wav[offset:onset])]
+        signals += [list([signal for offset, signal in sorted(cur_signals, key=lambda x: x[0])])]
+
+    return (filenames, signals, None)
+
 
 DATA_LOADERS = {
     'validation': {
         'automin': load_dataset_automin_validation
     },
     'test': {
-        'automin': load_dataset_automin_test
+        'automin': load_dataset_automin_test,
+        'ICSI': load_dataset_ICSI_test
     }
 }
