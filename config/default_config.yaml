@@ -1,5 +1,5 @@
-mode: test
-dataset_name: ICSI
+mode: validation
+dataset_name: automin
 
 # Params for speech recognition
 am_path: models/stt_en_conformer_ctc_large_ls.nemo

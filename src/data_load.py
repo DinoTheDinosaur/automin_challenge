@@ -37,7 +37,7 @@ def clean_automin_transcripts(text):
         text[onset:]
         match = re.search('(?<=\s)[0-9]+(?=[a-z\s])', text)
     text = re.sub('[.!?]', '\n', text)
-    text = re.sub('[^qwertyuiopasdfghjklzxcvbnm\-\'\s]', '', text)
+    text = re.sub('[^qwertyuiopasdfghjklzxcvbnm\-\'\s\[\]0-9]', '', text)
     text = re.sub('(?<!\w)-(?!\w)', '', text)
     text = re.sub('(?<!\w)-(?=\w)', '', text)
     text = re.sub('(?<=\w)-(?!\w)', '', text)
@@ -48,7 +48,10 @@ def clean_automin_transcripts(text):
     text = re.sub('^[ \-]+', '', text)
     text = re.sub('[ \-]+$', '', text)
     lines = [line for line in text.split('\n') if line != '']
-    return '\n'.join(lines)
+    text = '\n'.join(lines)
+    print('###')
+    print(text)
+    return text
 
 
 def load_dataset_automin_test(config):
