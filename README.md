@@ -78,7 +78,14 @@ We've precomputed results for each of the approaches for summarization:
 | BERT F1 | 0.77 | 0.76 | 0.76 | 0.77 |
 | Sentence Mover Score* | 1. | 1. | 1. | 1. |
 
-*SMS metric may be bugged, took from original repository https://github.com/eaclark07/sms with no modifications
+*SMS metric seems to be bugged, took from original repository https://github.com/eaclark07/sms with no modifications
+
+## Authors
+
+- [Olga Iakovenko](https://github.com/DinoTheDinosaur)
+- [Anna Andreeva](https://github.com/rogotulka)
+- [Anna Lapidus](https://github.com/AnyaLa)
+- [Liana Mikaelyan](https://github.com/LianaMikael)
 
 ## PS
 
