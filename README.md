@@ -37,11 +37,15 @@ Besides all above, it is possible to choose an algorithm for summary generation.
 - `cluster`: usage of USE vectorisation & clustering approaches for summary constructing
 
 To run the pipeline launch from folder automin_challenge:
-
 ```
 python -m src.run_inference
 ```
 Different datasets have different in-built dataset readers and results writers, so if you wish to generate minutes for a different type of dataset, you will need to define custom readers and writers for the datasets.
+
+Do not forget to modify dataset paths once you decide to run the pipeline on a particular dataset:
+```
+path: /path/to/your/automin-2021-confidential-data/task-A-elitr-minuting-corpus-en/dev
+```
 
 ## Results
 
