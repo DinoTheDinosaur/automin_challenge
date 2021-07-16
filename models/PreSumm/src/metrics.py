@@ -5,7 +5,7 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 
 import nltk
 # nltk.download('punkt')
-from src.train_abstractive import test_text_abs
+from train_abstractive import test_text_abs
 import os.path
 
 
