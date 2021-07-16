@@ -70,7 +70,7 @@ def load_dataset_automin_test(config):
                         clean_automin_transcripts(f.read())
                     ]
         texts += cur_transcripts
-    return (path, filenames, texts, None)
+    return (filenames, texts, None)
 
 
 def load_dataset_automin_validation(config):
@@ -98,7 +98,7 @@ def load_dataset_automin_validation(config):
                     ]
         texts += cur_transcripts
         summaries += [cur_summaries]
-    return (path, filenames, texts, summaries)
+    return (filenames, texts, summaries)
 
 
 def load_dataset_ICSI_test(config):
@@ -144,7 +144,7 @@ def load_dataset_ICSI_test(config):
                 cur_signals += [(offset, wav[offset:onset])]
         signals += [list([signal for offset, signal in sorted(cur_signals, key=lambda x: x[0])])]
 
-    return (config['test']['ICSI']['data']['path'], filenames, signals, None)
+    return (filenames, signals, None)
 
 
 DATA_LOADERS = {

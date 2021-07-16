@@ -172,6 +172,8 @@ def evaluate(summary_variants, predicts):
 
 	return {
 		'ROUGE': ROUGE_scores, 'BERT_scores': {
-			'Precision': BS_P, 'Recall': BS_R, 'F1': BS_F1
+			'Precision': BS_P.mean().item(),
+			'Recall': BS_R.mean().item(),
+			'F1': BS_F1.mean().item()
 		}, 'Sentence Mover Score': SMS
 	}

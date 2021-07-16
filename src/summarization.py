@@ -158,9 +158,19 @@ def predict_clustering(texts):
                 embedding_distances.argmin()
             ]
             cluster_centers[sel_label] = center_phrase
+        threshold = np.quantile(list(importances_cluster_mapping.values()), 0.9)
         summary_lines = list([line for label, line in zip(
             clustering.labels_,
             new_data
-        ) if (line in cluster_centers.values()) and (importances_cluster_mapping[label] > 5.)])
+        ) if (line in cluster_centers.values()) and (importances_cluster_mapping[label] > threshold)])
         new_texts += ['\n'.join(summary_lines)]
     return new_texts
+
+
+
+SUMMARIZATIONS = {
+    'random': predict_summary,
+    't5': predict_T5,
+    'pegasus': predict_pegasus,
+    'cluster': predict_clustering
+}
