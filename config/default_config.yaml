@@ -1,0 +1,31 @@
+mode: test
+dataset_name: automin
+summarization: cluster
+
+# Params for speech recognition
+am_path: models/stt_en_conformer_ctc_large_ls.nemo
+lm_path: models/lm.bin
+decoding_mode: beamsearch_ngram
+probs_cache_file: tmp/probs.cache
+device: cuda
+beam_batch_size: 128
+
+results_path: results/results.txt
+
+validation:
+  automin:
+    path: /path/to/your/automin-2021-confidential-data/task-A-elitr-minuting-corpus-en/dev
+    data:
+      filename_pattern: transcript_MAN*.deidentified.txt
+    summaries:
+      filename_pattern: minutes_*.deidentified.txt
+
+test:
+  automin:
+    path: /path/to/your/automin-2021-confidential-data/task-A-elitr-minuting-corpus-en/test_I
+    data:
+      filename_pattern: transcript_MAN*.deidentified.txt
+  ICSI:
+    data:
+      path: /path/to/your/ICSI/Signals_WAV
+      filename_pattern: '*.wav'
