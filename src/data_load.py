@@ -37,7 +37,7 @@ def clean_automin_transcripts(text):
         text[onset:]
         match = re.search('(?<=\s)[0-9]+(?=[a-z\s])', text)
     text = re.sub('[.!?]', '\n', text)
-    text = re.sub('[^qwertyuiopasdfghjklzxcvbnm\-\'\s\[\]0-9]', '', text)
+    text = re.sub('[^qwertyuiopasdfghjklzxcvbnm\-\'\s0-9]', '', text)
     text = re.sub('(?<!\w)-(?!\w)', '', text)
     text = re.sub('(?<!\w)-(?=\w)', '', text)
     text = re.sub('(?<=\w)-(?!\w)', '', text)
@@ -49,8 +49,8 @@ def clean_automin_transcripts(text):
     text = re.sub('[ \-]+$', '', text)
     lines = [line for line in text.split('\n') if line != '']
     text = '\n'.join(lines)
-    print('###')
-    print(text)
+    #print('###')
+    #print(text)
     return text
 
 
@@ -65,7 +65,7 @@ def load_dataset_automin_test(config):
         for filename in os.listdir(subdir):
             if fnmatch(filename, data_filename_pattern):
                 with open(os.path.join(subdir, filename)) as f:
-                    filenames += [filename]
+                    filenames += [os.path.join(subdir, filename)]
                     cur_transcripts += [
                         clean_automin_transcripts(f.read())
                     ]

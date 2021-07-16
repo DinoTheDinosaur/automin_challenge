@@ -4,3 +4,5 @@ pyyaml
 rouge-metric
 spacy
 wmd
+tensorflow_hub
+tensorflow
