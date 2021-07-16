@@ -37,7 +37,7 @@ def clean_automin_transcripts(text):
         text[onset:]
         match = re.search('(?<=\s)[0-9]+(?=[a-z\s])', text)
     text = re.sub('[.!?]', '\n', text)
-    text = re.sub('[^qwertyuiopasdfghjklzxcvbnm\-\'\s\[\]0-9]', '', text)
+    text = re.sub('[^qwertyuiopasdfghjklzxcvbnm\-\'\s0-9]', '', text)
     text = re.sub('(?<!\w)-(?!\w)', '', text)
     text = re.sub('(?<!\w)-(?=\w)', '', text)
     text = re.sub('(?<=\w)-(?!\w)', '', text)
@@ -49,8 +49,8 @@ def clean_automin_transcripts(text):
     text = re.sub('[ \-]+$', '', text)
     lines = [line for line in text.split('\n') if line != '']
     text = '\n'.join(lines)
-    print('###')
-    print(text)
+    #print('###')
+    #print(text)
     return text
 
 
@@ -65,12 +65,12 @@ def load_dataset_automin_test(config):
         for filename in os.listdir(subdir):
             if fnmatch(filename, data_filename_pattern):
                 with open(os.path.join(subdir, filename)) as f:
-                    filenames += [filename]
+                    filenames += [os.path.join(subdir, filename)]
                     cur_transcripts += [
                         clean_automin_transcripts(f.read())
                     ]
         texts += cur_transcripts
-    return (filenames, texts, None)
+    return (path, filenames, texts, None)
 
 
 def load_dataset_automin_validation(config):
@@ -98,7 +98,7 @@ def load_dataset_automin_validation(config):
                     ]
         texts += cur_transcripts
         summaries += [cur_summaries]
-    return (filenames, texts, summaries)
+    return (path, filenames, texts, summaries)
 
 
 def load_dataset_ICSI_test(config):
@@ -144,7 +144,7 @@ def load_dataset_ICSI_test(config):
                 cur_signals += [(offset, wav[offset:onset])]
         signals += [list([signal for offset, signal in sorted(cur_signals, key=lambda x: x[0])])]
 
-    return (filenames, signals, None)
+    return (config['test']['ICSI']['data']['path'], filenames, signals, None)
 
 
 DATA_LOADERS = {
