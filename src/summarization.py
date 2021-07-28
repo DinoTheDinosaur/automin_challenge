@@ -168,9 +168,117 @@ def predict_clustering(texts):
 
 
 
+def create_dataloader(args, texts, tokenizer, device='cpu', max_pos=512, max_n_words=510):
+    sep_vid = tokenizer.vocab['[SEP]']
+    cls_vid = tokenizer.vocab['[CLS]']
+    n_lines = len(open(source_fp).read().split('\n'))
+
+    def _process_src(raw):
+        raw = raw.strip().lower()
+        raw = raw.replace('[cls]','[CLS]').replace('[sep]','[SEP]')
+        src_subtokens = tokenizer.tokenize(raw)
+        src_subtokens = ['[CLS]'] + src_subtokens + ['[SEP]']
+        src_subtoken_idxs = tokenizer.convert_tokens_to_ids(src_subtokens)
+        src_subtoken_idxs = src_subtoken_idxs[:-1][:max_pos]
+        src_subtoken_idxs[-1] = sep_vid
+        _segs = [-1] + [i for i, t in enumerate(src_subtoken_idxs) if t == sep_vid]
+        segs = [_segs[i] - _segs[i - 1] for i in range(1, len(_segs))]
+        segments_ids = []
+        segs = segs[:max_pos]
+        for i, s in enumerate(segs):
+            if (i % 2 == 0):
+                segments_ids += s * [0]
+            else:
+                segments_ids += s * [1]
+
+        src = torch.tensor(src_subtoken_idxs)[None, :].to(device)
+        mask_src = (1 - (src == 0).float()).to(device)
+        cls_ids = [[i for i, t in enumerate(src_subtoken_idxs) if t == cls_vid]]
+        clss = torch.tensor(cls_ids).to(device)
+        mask_cls = 1 - (clss == -1).float()
+        clss[clss == -1] = 0
+
+        return src, mask_src, segments_ids, clss, mask_cls
+
+    for text_id, text in enumerate(texts):
+        parts = [[]]
+        sentences = text.split('\n')
+        cur_part_len = 0
+
+        for sentence in sentences:
+            words = nltk.word_tokenize(sentence)
+            if (cur_part_len + len(words)) <= max_n_words:
+                parts[-1] += [sentence]
+                cur_part_len += len(words)
+            else:
+                parts += [[sentence]]
+                cur_part_len = len(words)
+
+        res = ''
+        for part in parts:
+            text_part = '\n'.join(part)
+            src, mask_src, segments_ids, clss, mask_cls = _process_src(text_part)
+            segs = torch.tensor(segments_ids)[None, :].to(device)
+            batch = Batch()
+            batch.text_id = text_id
+            batch.src = src
+            batch.tgt = None
+            batch.mask_src = mask_src
+            batch.mask_tgt = None
+            batch.segs = segs
+            batch.src_str = [[
+                sent.replace('[SEP]','').strip() for sent in x.split('[CLS]')
+            ]]
+            batch.tgt_str = ['']
+            batch.clss = clss
+            batch.mask_cls = mask_cls
+            batch.batch_size = 1
+            yield batch
+
+
+def predict_presumm(texts, model_path='models/cnndm_baseline_best.pt', tmp_dir='tmp/'):
+    import nltk
+    import torch
+
+    from pytorch_transformers import BertTokenizer
+    from src.models import AbsSummarizer, Batch, Translator
+
+    checkpoint = torch.load(
+        model_path
+    )
+
+    model = AbsSummarizer(
+        checkpoint
+    )
+    model.eval()
+
+    tokenizer = BertTokenizer.from_pretrained(
+        'bert-base-uncased', do_lower_case=True, cache_dir=tmp_dir
+    )
+
+    dataloader = create_dataloader(texts, tokenizer)
+
+    symbols = {'BOS': tokenizer.vocab['[unused0]'], 'EOS': tokenizer.vocab['[unused1]'],
+               'PAD': tokenizer.vocab['[PAD]'], 'EOQ': tokenizer.vocab['[unused2]']}
+    predictor = Translator(model, tokenizer, symbols)
+    results = []
+    cur_text_id = 0
+    for text_id, result in predictor.translate(dataloader):
+        if results == []:
+            results = [result]
+        elif cur_text_id == text_id:
+            results[-1] = ['\n'.join([results[-1], result])]
+        else:
+            results += [result]
+            cur_text_id = text_id
+    return results
+
+
+
 SUMMARIZATIONS = {
     'random': predict_summary,
     't5': predict_T5,
     'pegasus': predict_pegasus,
-    'cluster': predict_clustering
+    'cluster': predict_clustering,
+    'presumm': predict_presumm
 }
